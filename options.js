@@ -170,6 +170,11 @@ async function loadProfile() {
   customFields.replaceChildren();
   Object.entries(profile.custom).forEach(([key, value]) => addCustomRow(key, value));
   updateCount(profile);
+  const guide = document.getElementById("setup-guide");
+  if (!guide.dataset.initialized) {
+    guide.open = Number(document.getElementById("saved-count").textContent) === 0;
+    guide.dataset.initialized = "true";
+  }
   dirty = false;
 }
 
@@ -191,6 +196,25 @@ function download(blob, name) {
 }
 
 buildSections();
+document.getElementById("setup-prompt").value = ApplyKitGuide.prompt();
+document.getElementById("setup-tips-link").addEventListener("click", () => { document.getElementById("setup-guide").open = true; });
+document.getElementById("guide-resume-link").addEventListener("click", () => { document.getElementById("links").open = true; });
+document.getElementById("copy-setup-prompt").addEventListener("click", async () => {
+  const prompt = document.getElementById("setup-prompt");
+  const feedback = document.getElementById("guide-status");
+  try {
+    await navigator.clipboard.writeText(prompt.value);
+    feedback.textContent = "Prompt copied. Attach your JSON and CV in ChatGPT.";
+  } catch {
+    document.getElementById("prompt-details").open = true;
+    prompt.focus(); prompt.select();
+    feedback.textContent = "Press Ctrl+C / ⌘C to copy the selected prompt.";
+  }
+});
+document.getElementById("download-profile-template").addEventListener("click", () => {
+  download(new Blob([JSON.stringify(ApplyKitGuide.blankBackup(), null, 2)], { type: "application/json" }), "applykit-profile-template.json");
+  document.getElementById("guide-status").textContent = "Blank template downloaded. Use Export JSON to keep existing details.";
+});
 document.getElementById("add-social").addEventListener("click", () => { addSocialRow(); markDirty(); document.querySelector(".social-row:last-child .social-platform").focus(); });
 document.getElementById("add-custom").addEventListener("click", () => { addCustomRow(); markDirty(); customFields.lastElementChild.querySelector("input").focus(); });
 form.addEventListener("input", event => { if (event.target.id !== "resume-file") markDirty(); });

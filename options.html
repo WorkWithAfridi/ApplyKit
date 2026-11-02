@@ -4,19 +4,40 @@
 <body class="settings-page">
   <aside class="sidebar">
     <a class="brand" href="#top"><img src="assets/logo.svg" alt="" width="38" height="38"><span>ApplyKit<small>MAKE YOUR NEXT MOVE.</small></span></a>
-    <div class="sidebar-label">YOUR TOOLKIT</div><nav id="section-nav" aria-label="Profile sections"></nav>
+    <div class="sidebar-label">YOUR TOOLKIT</div><nav id="section-nav" aria-label="Profile sections"><a id="setup-tips-link" class="nav-link" href="#setup-guide"><span class="nav-number">?</span>Setup tips</a></nav>
     <div class="sidebar-bottom"><span class="privacy-dot"></span> Saved on this device<small>Your profile travels only when you choose to fill a form.</small></div>
   </aside>
   <main class="settings-shell" id="top">
     <header class="settings-header"><div><p class="eyebrow">READY FOR WHAT’S NEXT</p><h1>Your application profile<span>.</span></h1><p class="intro">Set up once. Bring your best details to every opportunity.</p></div><div class="profile-count"><strong id="saved-count">0</strong><span>details ready</span></div></header>
+    <details class="setup-guide" id="setup-guide">
+      <summary><span class="guide-mark" aria-hidden="true">↗</span><span><strong>A head start on your setup</strong><small>A few useful tips, including a CV-to-profile workflow with ChatGPT.</small></span><span class="chevron" aria-hidden="true">⌄</span></summary>
+      <div class="guide-content">
+        <div class="guide-grid">
+          <section aria-labelledby="setup-basics-title"><p class="eyebrow">GET READY</p><h2 id="setup-basics-title">Start with the essentials.</h2><ol class="guide-steps">
+            <li><strong>Save your reusable details.</strong><span>Start with your name, email, phone, and links. Every field is optional; blank values are skipped.</span></li>
+            <li><strong>Keep your CV ready.</strong><span>Add your PDF in <a id="guide-resume-link" href="#links">Links &amp; resume</a>. JSON backups contain profile details, not the PDF itself.</span></li>
+            <li><strong>Review before you apply.</strong><span>Check matched fields and tailor company-specific answers. Use popup search to copy and paste anything that needs a manual touch.</span></li>
+          </ol></section>
+          <section aria-labelledby="setup-ai-title"><p class="eyebrow">OPTIONAL SHORTCUT</p><h2 id="setup-ai-title">Turn your CV into a profile.</h2><ol class="guide-steps">
+            <li><strong>Export a starting point.</strong><span>Save any edits, then use <a href="#profile-backup">Export JSON</a>. Starting fresh? Download the blank template below.</span></li>
+            <li><strong>Attach your JSON and CV to <a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a>.</strong><span>Use the prompt below to ask for an updated import file that preserves existing details and adds only facts supported by your CV.</span></li>
+            <li><strong>Review the generated JSON.</strong><span>Check contact details, dates, qualifications, and links. Keep your original backup so you can restore it.</span></li>
+            <li><strong>Import the updated file.</strong><span>Choose <a href="#profile-backup">Import JSON</a> and confirm. Import replaces profile fields, so the generated file must retain anything you want to keep.</span></li>
+          </ol></section>
+        </div>
+        <p class="guide-privacy">Using ChatGPT is optional. You choose which files to share with it; ApplyKit does not upload your profile or CV automatically.</p>
+        <div class="guide-actions"><button id="copy-setup-prompt" class="button primary compact" type="button">Copy ChatGPT prompt</button><button id="download-profile-template" class="button secondary compact" type="button">↓ Blank JSON template</button><span id="guide-status" role="status" aria-live="polite"></span></div>
+        <details id="prompt-details" class="prompt-details"><summary>Read the reusable prompt</summary><label class="visually-hidden" for="setup-prompt">Reusable ChatGPT prompt</label><textarea id="setup-prompt" readonly rows="9" spellcheck="false"></textarea></details>
+      </div>
+    </details>
     <div class="workspace-bar"><label class="search-wrap"><span aria-hidden="true">⌕</span><input id="field-search" type="search" placeholder="Find a detail, like salary or university" aria-label="Search profile fields"></label><span class="optional-note">Every field is optional</span></div>
     <form id="profile-form"><div id="profile-sections"></div>
       <details class="form-section" id="custom"><summary><span class="section-index">10</span><span class="section-title"><strong>Custom answers</strong><small>Make room for the questions unique to your search.</small></span><span class="chevron" aria-hidden="true">⌄</span></summary><div class="section-content"><p class="note">Use the exact question or field label when possible. Longer labels make more precise matches.</p><div id="custom-fields"></div><button class="button secondary compact" id="add-custom" type="button">＋ Add an answer</button></div></details>
       <p id="no-results" class="empty-search" hidden>No fields found. Try a different search.</p>
       <div class="save-row"><div><span id="save-status" class="status" role="status" aria-live="polite">Your details stay in this browser.</span><small>Blank fields are skipped when filling.</small></div><button class="button primary" type="submit">Save profile <span aria-hidden="true">↗</span></button></div>
     </form>
-    <section class="backup-section"><div><p class="eyebrow">KEEP A COPY</p><h2>Your profile, portable.</h2><p>Export your details or restore a backup. Keep your original PDF separately.</p></div><div class="backup-actions"><button class="button secondary compact" id="export-button" type="button">↓ Export JSON</button><label class="button secondary compact file-button">↑ Import JSON<input id="import-file" class="visually-hidden" type="file" accept="application/json,.json"></label></div></section>
+    <section class="backup-section" id="profile-backup"><div><p class="eyebrow">KEEP A COPY</p><h2>Your profile, portable.</h2><p>Export your details or restore a backup. Keep your original PDF separately.</p></div><div class="backup-actions"><button class="button secondary compact" id="export-button" type="button">↓ Export JSON</button><label class="button secondary compact file-button">↑ Import JSON<input id="import-file" class="visually-hidden" type="file" accept="application/json,.json"></label></div></section>
     <footer class="page-footer"><span>ApplyKit · Less repetition. More opportunity.</span><span>No account. No cloud. Yours.</span></footer>
   </main>
-  <script src="schema.js"></script><script src="storage.js"></script><script src="options.js"></script>
+  <script src="schema.js"></script><script src="setup-guide.js"></script><script src="storage.js"></script><script src="options.js"></script>
 </body></html>
