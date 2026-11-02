@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "ApplyKit",
+  "version": "0.1.0",
+  "description": "Fill job application forms with profile details stored in your browser.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "action": {
+    "default_title": "ApplyKit",
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html"
+}
