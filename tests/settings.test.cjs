@@ -70,7 +70,7 @@ test("desktop and narrow layouts render without horizontal overflow", async () =
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
   await page.goto(`${base}/popup.html`); await page.waitForFunction(() => document.getElementById('profile-summary').textContent.includes('get started'));
   assert.equal(await page.locator('#fill-button').textContent(), "Review matching fields →");
-  await page.setViewportSize({ width: 380, height: 580 });
+  await page.setViewportSize({ width: 400, height: 600 });
   if (process.env.APPLYKIT_SCREENSHOTS) await page.locator('body').screenshot({ path: path.join(process.env.APPLYKIT_SCREENSHOTS, 'popup.png'), animations: 'disabled' });
   assert.deepEqual(errors, []); await page.close();
 });
@@ -100,4 +100,65 @@ test("popup previews before filling, attaches the PDF only on confirmation, and 
   await popup.locator('#undo-button').click(); await popup.waitForFunction(() => document.getElementById('status').textContent.includes('Restored 2 fields'));
   assert.equal(await target.locator('#application-email').inputValue(), ""); assert.equal(await target.locator('input[type=file]').evaluate(field => field.files.length), 0);
   await popup.close(); await target.close();
+});
+
+async function quickCopyPopup(profile, options = {}) {
+  const page = await browser.newPage({ viewport: { width: 400, height: 600 }, reducedMotion: "reduce" });
+  await page.addInitScript(({ profile, options }) => {
+    window.chrome = { storage: { local: { get: async () => ({ profile }) } }, runtime: { openOptionsPage: async () => {} } };
+    if (options.clipboardFailure) Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => { throw new Error('Clipboard unavailable'); } } });
+    if (options.resumeFailure) Object.defineProperty(indexedDB, 'open', { value: () => { throw new Error('Database unavailable'); } });
+  }, { profile, options });
+  await page.goto(`${base}/popup.html`); await page.waitForFunction(() => document.getElementById('profile-summary').textContent !== 'Loading your details…');
+  return page;
+}
+
+test("popup searches saved fields by aliases and values, and copies real clipboard text", async () => {
+  const profile = { firstName: 'Fictional', lastName: 'Applicant', email: 'fictional@example.test', phoneCountryCode: '+44', phone: '7700 900000', linkedin: 'https://example.test/linkedin', custom: { 'Preferred editor': 'First line\nSecond line' } };
+  const popup = await quickCopyPopup(profile);
+  if (process.env.APPLYKIT_SCREENSHOTS) await popup.locator('body').screenshot({ path: path.join(process.env.APPLYKIT_SCREENSHOTS, 'popup.png'), animations: 'disabled' });
+  await popup.locator('#saved-field-search').fill('email');
+  assert.equal(await popup.locator('.copy-detail').count(), 1);
+  await popup.getByRole('button', { name: 'Copy Email', exact: true }).click();
+  await popup.waitForFunction(() => document.getElementById('copy-status').textContent === 'Copied Email');
+  await popup.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  assert.equal(await popup.evaluate(() => navigator.clipboard.readText()), profile.email);
+  await popup.locator('#saved-field-search').fill('given name');
+  assert.equal(await popup.getByRole('button', { name: 'Copy First name', exact: true }).count(), 1);
+  await popup.locator('#saved-field-search').fill('full name'); await popup.locator('#saved-field-search').press('Enter');
+  await popup.waitForFunction(() => document.getElementById('copy-status').textContent === 'Copied Full name');
+  assert.equal(await popup.evaluate(() => navigator.clipboard.readText()), 'Fictional Applicant');
+  await popup.locator('#saved-field-search').fill('international'); await popup.getByRole('button', { name: 'Copy Phone with country code', exact: true }).click();
+  await popup.waitForFunction(() => document.getElementById('copy-status').textContent === 'Copied Phone with country code');
+  assert.equal(await popup.evaluate(() => navigator.clipboard.readText()), '+44 7700 900000');
+  await popup.locator('#saved-field-search').fill('preferred editor'); await popup.locator('#saved-field-search').press('Enter');
+  await popup.waitForFunction(() => document.getElementById('copy-status').textContent === 'Copied Preferred editor');
+  assert.equal(await popup.evaluate(() => navigator.clipboard.readText()), profile.custom['Preferred editor']);
+  await popup.locator('#saved-field-search').fill('https://example.test/linkedin'); assert.equal(await popup.locator('.copy-detail').count(), 1);
+  await popup.locator('#saved-field-search').fill('nonesuch'); assert.equal(await popup.locator('#saved-field-empty').isVisible(), true);
+  await popup.locator('#saved-field-search').press('Escape'); assert.equal(await popup.locator('#saved-field-search').inputValue(), '');
+  await popup.close();
+});
+
+test("clipboard failure offers selected text and resume failure does not hide saved details", async () => {
+  const popup = await quickCopyPopup({ email: 'fictional@example.test' }, { clipboardFailure: true, resumeFailure: true });
+  await popup.getByRole('button', { name: 'Copy Email', exact: true }).click();
+  assert.equal(await popup.locator('#manual-copy-value').inputValue(), 'fictional@example.test');
+  assert.equal(await popup.locator('#manual-copy-value').isVisible(), true);
+  assert.equal(await popup.locator('#manual-copy-value').evaluate(field => field.selectionEnd - field.selectionStart), 'fictional@example.test'.length);
+  assert.equal(await popup.locator('#resume-summary').textContent(), 'Resume storage is unavailable'); await popup.close();
+});
+
+test("saved-detail copying stays available after page access fails", async () => {
+  const popup = await quickCopyPopup({ email: 'fictional@example.test' });
+  await popup.evaluate(() => {
+    chrome.tabs = { query: async () => [{ id: 10 }] };
+    chrome.scripting = { executeScript: async () => { throw new Error('Cannot access this page'); } };
+  });
+  await popup.locator('#fill-button').click();
+  await popup.waitForFunction(() => document.getElementById('status').textContent.includes('Autofill cannot read this page'));
+  await popup.locator('#saved-field-search').fill('email');
+  await popup.getByRole('button', { name: 'Copy Email', exact: true }).click();
+  await popup.waitForFunction(() => document.getElementById('copy-status').textContent === 'Copied Email');
+  await popup.close();
 });
