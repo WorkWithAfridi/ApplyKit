@@ -1,7 +1,7 @@
 const form = document.getElementById("profile-form");
 const customFields = document.getElementById("custom-fields");
 const status = document.getElementById("save-status");
-const standardKeys = ["firstName", "lastName", "fullName", "email", "phone", "location", "linkedin", "portfolio", "github", "resumeUrl"];
+const standardKeys = ["firstName", "lastName", "fullName", "email", "phoneCountryCode", "phone", "location", "linkedin", "portfolio", "github", "resumeUrl"];
 
 function addCustomRow(key = "", value = "") {
   const row = document.createElement("div");
@@ -30,6 +30,40 @@ async function loadProfile() {
   for (const key of standardKeys) form.elements[key].value = profile[key] || "";
   for (const [key, value] of Object.entries(profile.custom || {})) addCustomRow(key, value);
 }
+
+async function updateResumeStatus() {
+  const resume = await ApplyKitStorage.getResume();
+  const resumeStatus = document.getElementById("resume-status");
+  const removeButton = document.getElementById("remove-resume");
+  if (resume) {
+    const size = (resume.file.size / (1024 * 1024)).toFixed(2);
+    resumeStatus.textContent = `${resume.name} · ${size} MB · stored in this browser`;
+    removeButton.hidden = false;
+  } else {
+    resumeStatus.textContent = "No resume PDF stored.";
+    removeButton.hidden = true;
+  }
+}
+
+document.getElementById("resume-file").addEventListener("change", async event => {
+  const file = event.target.files[0];
+  if (!file) return;
+  const resumeStatus = document.getElementById("resume-status");
+  try {
+    await ApplyKitStorage.saveResume(file);
+    resumeStatus.textContent = "Resume PDF saved in this browser.";
+    await updateResumeStatus();
+  } catch (error) {
+    resumeStatus.textContent = error.message || "Could not store that PDF.";
+  } finally {
+    event.target.value = "";
+  }
+});
+
+document.getElementById("remove-resume").addEventListener("click", async () => {
+  await ApplyKitStorage.removeResume();
+  await updateResumeStatus();
+});
 
 form.addEventListener("submit", async event => {
   event.preventDefault();
@@ -73,3 +107,4 @@ document.getElementById("import-file").addEventListener("change", async event =>
 });
 
 loadProfile();
+updateResumeStatus();

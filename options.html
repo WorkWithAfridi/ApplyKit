@@ -21,8 +21,9 @@
             <label>First name<input name="firstName" autocomplete="given-name"></label>
             <label>Last name<input name="lastName" autocomplete="family-name"></label>
             <label class="wide">Full name<input name="fullName" autocomplete="name"></label>
-            <label>Email<input type="email" name="email" autocomplete="email"></label>
-            <label>Phone<input type="tel" name="phone" autocomplete="tel"></label>
+            <label class="wide">Email<input type="email" name="email" autocomplete="email"></label>
+            <label>Phone country code<input type="tel" name="phoneCountryCode" autocomplete="tel-country-code" placeholder="+880"></label>
+            <label>Phone number<input type="tel" name="phone" autocomplete="tel-national"></label>
             <label class="wide">Location<input name="location" placeholder="City, country"></label>
           </div>
         </section>
@@ -34,7 +35,12 @@
             <label>GitHub URL<input type="url" name="github" placeholder="https://..."></label>
             <label>Resume / CV URL<input type="url" name="resumeUrl" placeholder="https://..."></label>
           </div>
-          <p class="note">A resume link can fill a URL field. For file-upload fields, choose your resume manually; Chrome does not let extensions silently attach a local file.</p>
+          <div class="resume-store">
+            <div><strong>Resume PDF</strong><p class="note">Stored in this browser. ApplyKit can attach it to a matching resume upload field when you choose Fill this form.</p></div>
+            <div class="resume-controls"><label class="button secondary compact import-button">Choose PDF<input id="resume-file" type="file" accept="application/pdf,.pdf" hidden></label><button class="button secondary compact" id="remove-resume" type="button" hidden>Remove PDF</button></div>
+            <p class="resume-status" id="resume-status" role="status" aria-live="polite">No resume PDF stored.</p>
+          </div>
+          <p class="note">A resume link can also fill a URL field. File attachment depends on the application page accepting the stored PDF and matching its resume field.</p>
         </section>
         <section class="form-section">
           <div class="section-heading"><h2>Custom fields</h2><p>Other reusable answers</p></div>
@@ -45,10 +51,11 @@
         <div class="save-row"><span id="save-status" class="status" role="status" aria-live="polite">Saved only in this browser.</span><button class="button primary" type="submit">Save profile</button></div>
       </form>
       <section class="backup-section">
-        <div><h2>Backup your profile</h2><p>Export or import a JSON copy. Treat exported files as sensitive.</p></div>
+        <div><h2>Backup your profile</h2><p>JSON backups include profile fields, not the stored PDF. Treat exports as sensitive.</p></div>
         <div class="backup-actions"><button class="button secondary compact" id="export-button" type="button">Export JSON</button><label class="button secondary compact import-button">Import JSON<input id="import-file" type="file" accept="application/json,.json" hidden></label></div>
       </section>
     </main>
+    <script src="storage.js"></script>
     <script src="options.js"></script>
   </body>
 </html>
