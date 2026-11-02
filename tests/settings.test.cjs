@@ -221,3 +221,61 @@ test("popup finds social platform aliases and copies custom social URLs", async 
   await popup.locator('#saved-field-search').fill('social'); assert.equal(await popup.locator('.copy-detail').count(), 3);
   await popup.close();
 });
+
+test("setup tips offer a reusable prompt and a valid blank template without exporting personal data", async () => {
+  const page = await settings();
+  assert.equal(await page.locator('#setup-guide').evaluate(node => node.open), true);
+  await page.locator('input[name=firstName]').fill('UniqueFictionalApplicant');
+  await page.locator('#copy-setup-prompt').click();
+  await page.waitForFunction(() => document.getElementById('guide-status').textContent.includes('Prompt copied'));
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  const prompt = await page.evaluate(() => navigator.clipboard.readText());
+  assert.equal(prompt.includes('UniqueFictionalApplicant'), false);
+  assert.ok(prompt.includes('Preserve its existing socialLinks'));
+  assert.ok(prompt.includes('Do not guess salary'));
+  assert.ok(prompt.includes('Do not invent a day'));
+  assert.ok(prompt.includes('fillSensitive as a boolean'));
+  const keys = await page.evaluate(() => ApplyKitSchema.fields.map(field => field.key));
+  keys.forEach(key => assert.ok(prompt.includes(key)));
+  const downloadEvent = page.waitForEvent('download'); await page.locator('#download-profile-template').click();
+  const download = await downloadEvent;
+  assert.equal(download.suggestedFilename(), 'applykit-profile-template.json');
+  const template = JSON.parse(await fs.readFile(await download.path(), 'utf8'));
+  assert.equal(template.version, 2);
+  keys.forEach(key => assert.equal(template.profile[key], ''));
+  assert.deepEqual(template.profile.socialLinks, []); assert.deepEqual(template.profile.custom, {}); assert.equal(template.profile.fillSensitive, false);
+  const cleaned = await page.evaluate(profile => cleanProfile(profile), template.profile); assert.deepEqual(cleaned, template.profile);
+  assert.equal(await page.locator('input[name=firstName]').inputValue(), 'UniqueFictionalApplicant');
+  assert.equal(await page.evaluate(() => localStorage.getItem('fixtureProfile')), null);
+  assert.equal(await page.locator('#save-status').textContent(), 'You have unsaved changes.');
+  await page.close();
+});
+
+test("setup tips stay out of the way for an existing profile and remain accessible on narrow screens", async () => {
+  const page = await settings();
+  await page.evaluate(() => chrome.storage.local.set({ profile: { firstName: 'Example' } }));
+  await page.reload();
+  assert.equal(await page.locator('#setup-guide').evaluate(node => node.open), false);
+  await page.locator('#setup-tips-link').click(); assert.equal(await page.locator('#setup-guide').evaluate(node => node.open), true);
+  await page.locator('#prompt-details summary').click();
+  assert.equal(await page.locator('#setup-prompt').isVisible(), true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+  assert.equal(await page.locator('input[name=firstName]').inputValue(), 'Example');
+  if (process.env.APPLYKIT_SCREENSHOTS) {
+    await page.setViewportSize({ width: 1440, height: 1100 });
+    await page.locator('#prompt-details summary').click();
+    await page.locator('#setup-guide').screenshot({ path: path.join(process.env.APPLYKIT_SCREENSHOTS, 'setup-tips.png'), animations: 'disabled' });
+  }
+  await page.close();
+});
+
+test("setup prompt remains manually copyable if clipboard access fails", async () => {
+  const page = await settings();
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => { throw new Error('Clipboard unavailable'); } } }));
+  await page.locator('#copy-setup-prompt').click();
+  await page.waitForFunction(() => document.getElementById('guide-status').textContent.includes('selected prompt'));
+  assert.equal(await page.locator('#prompt-details').evaluate(node => node.open), true);
+  assert.equal(await page.locator('#setup-prompt').evaluate(node => node.selectionEnd - node.selectionStart === node.value.length), true);
+  await page.close();
+});

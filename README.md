@@ -7,6 +7,7 @@
 ## What it does
 
 - A blue profile workspace with search, collapsible sections, a saved-detail count, and reminders for unsaved changes.
+- Built-in setup tips, a copyable ChatGPT prompt for merging CV details into your profile, and a downloadable blank JSON template.
 - Optional fields for contact details, full address, social links, resume, recent experience, education, work eligibility, availability, compensation, and reusable application answers.
 - Up to 100 custom questions and answers for details unique to your search.
 - Named social links for X/Twitter, Facebook, and any other platform, with search, copy, autofill, and backup support.
@@ -54,6 +55,20 @@ Open ApplyKit and choose **Edit**. Fill any details you want to reuse and click 
 | Custom answers | Your own question labels and reusable answers |
 
 Self-identification answers are excluded from filling unless you explicitly enable the checkbox in that section. Leave anything you do not want to store blank.
+
+### Use a CV to prepare your profile with ChatGPT
+
+Open **Setup tips** from the settings sidebar. The guide opens automatically for an empty profile and stays collapsed for an existing one.
+
+1. Save any current edits and **Export JSON**. If you are starting fresh, use **Blank JSON template** in the guide.
+2. Attach that JSON and your CV PDF in ChatGPT. Use **Copy ChatGPT prompt** to request a complete updated import file that preserves your existing profile and fills only CV-backed facts.
+3. Review the generated file. The prompt asks ChatGPT to preserve social links, custom answers, and preferences; avoid guessing salary, eligibility, or personal details; and keep incomplete dates and ongoing qualifications accurate.
+4. Keep your original backup. Choose **Import JSON** in ApplyKit and select the generated file. Import replaces profile fields rather than merging them automatically, so the generated file must contain every value you want to retain.
+5. Choose your CV PDF separately under **Links & resume** if it is not already stored. JSON files contain profile data, not the PDF itself.
+
+This is an optional manual workflow. ApplyKit does not upload files, call ChatGPT, or include personal data in the reusable prompt or blank template. Files you attach to ChatGPT are shared with that service; choose what you want to share. The generated profile needs your review before import.
+
+![Built-in setup tips](docs/screenshots/setup-tips.png)
 
 ### Social links
 
@@ -130,6 +145,7 @@ The browser checks use installed Google Chrome in headless mode and fictional te
 | `popup.html`, `popup.js` | Profile overview and review/fill/undo flow |
 | `autofill.js` | Isolated-world matching, filling, and undo |
 | `storage.js` | Browser-local PDF persistence |
+| `setup-guide.js` | Reusable setup prompt and blank profile template |
 | `styles.css`, `assets/` | Blue theme and logo/icon assets |
 
 ## Contributing
