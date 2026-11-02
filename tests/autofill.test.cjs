@@ -87,3 +87,26 @@ test("radio groups with the same name in separate forms remain independent", asy
   assert.equal((await run(page, { sponsorship: "No" })).matches.length, 2);
   assert.equal((await run(page, {}, "fill")).filled, 2); assert.equal(await page.locator('input:checked').count(), 2); await page.close();
 });
+
+test("unlinked visual labels identify a typical application form with opaque field names", async () => {
+  const page = await fixture('<form><div class="form-group"><label>Full Name: *</label><input name="field_101"></div><div class="form-group"><label>Email: *</label><input name="field_102" type="text"></div><div class="form-group"><label>Phone:</label><div class="input-group"><input name="field_103"></div></div><div class="form-group"><label>Linkedin Link: *</label><input name="field_104"></div><div class="form-group"><label>Resume:</label><div class="custom-file"><input name="field_105" type="file" multiple><label>Choose file</label></div></div><label><input type="checkbox">I agree to the terms</label></form>');
+  const profile = { fullName: "Fictional Applicant", email: "fictional@example.test", phone: "7700 900000", linkedin: "https://example.test/profile" };
+  const resume = { name: "fictional.pdf", base64: Buffer.from("%PDF-1.7\nFixture").toString("base64") };
+  const preview = await run(page, profile, "preview", resume);
+  assert.deepEqual(preview.matches.map(match => match.label), ["Full name", "Email", "Phone number", "LinkedIn URL", "Resume PDF"]);
+  const result = await run(page, profile, "fill", resume); assert.equal(result.filled, 4); assert.equal(result.attached, 1);
+  assert.equal(await page.locator('input[name=field_101]').inputValue(), profile.fullName); assert.equal(await page.locator('input[name=field_104]').inputValue(), profile.linkedin); assert.equal(await page.locator('input[type=checkbox]').isChecked(), false); await page.close();
+});
+
+test("nearby labels stay local and do not borrow the next field or a different linked label", async () => {
+  const page = await fixture('<form><label>City:</label><input id="field_a"><label>Country:</label><input id="field_b"><div><label for="elsewhere">Email</label><input id="opaque"></div><div><label>First name</label><input id="name"></div><div><label>Street address</label><input id="explicit" aria-label="City"></div><input id="elsewhere" type="hidden"></form>');
+  const profile = { city: "Example City", country: "Example Country", email: "fictional@example.test", fullName: "Fictional Applicant", firstName: "Fictional", addressLine1: "Fictional Street" };
+  await run(page, profile); await run(page, profile, "fill");
+  assert.equal(await page.locator('#field_a').inputValue(), profile.city); assert.equal(await page.locator('#field_b').inputValue(), profile.country); assert.equal(await page.locator('#opaque').inputValue(), ""); assert.equal(await page.locator('#name').inputValue(), profile.firstName); assert.equal(await page.locator('#explicit').inputValue(), profile.city); await page.close();
+});
+
+test("unmatched forms report what was inspected without exposing field values", async () => {
+  const page = await fixture('<form><label>Mystery question<input name="opaque"></label><label>Other question<input value="Existing answer"></label></form>');
+  const result = await run(page, { email: "fictional@example.test" });
+  assert.equal(result.matches.length, 0); assert.equal(result.fieldCount, 2); assert.equal(result.emptyFieldCount, 1); assert.equal(JSON.stringify(result).includes('Existing answer'), false); await page.close();
+});

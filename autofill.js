@@ -82,51 +82,89 @@ function applyKitFill(profile = {}, resume = null, action = "preview") {
   }
 
   const fields = []; const seen = new Set();
+  let inaccessibleFrames = 0;
   function collect(root) {
     if (!root || seen.has(root)) return;
     seen.add(root);
     fields.push(...root.querySelectorAll("input, textarea, select"));
     for (const element of root.querySelectorAll("*")) if (element.shadowRoot) collect(element.shadowRoot);
     for (const frame of root.querySelectorAll("iframe")) {
-      try { if (frame.contentDocument) collect(frame.contentDocument); } catch { /* Cross-origin frames require additional access. */ }
+      try { if (frame.contentDocument) collect(frame.contentDocument); else inaccessibleFrames++; } catch { inaccessibleFrames++; }
     }
   }
   collect(document);
   const referencedText = field => (field.getAttribute("aria-labelledby") || "").split(/\s+/).map(id => field.getRootNode().getElementById?.(id)?.textContent || "").join(" ");
-  const hints = field => [
-    field.name, field.id, field.getAttribute("aria-label"), referencedText(field), field.placeholder,
-    ...[...(field.labels || [])].map(label => {
-      const clone = label.cloneNode(true); clone.querySelectorAll("input,select,textarea").forEach(node => node.remove()); return clone.textContent;
-    }),
-    field.type === "radio" ? field.closest("fieldset")?.querySelector("legend")?.textContent : ""
-  ].map(normalize).filter(Boolean);
+  const labelText = element => {
+    if (!element) return "";
+    const clone = element.cloneNode(true);
+    clone.querySelectorAll("input,select,textarea,button,script,style").forEach(node => node.remove());
+    return clone.textContent.trim();
+  };
+  // Many form builders render a visual label without a matching `for` attribute.
+  // Use local structure, never the entire form's text, to associate those labels.
+  const nearbyLabels = field => {
+    const labels = new Set();
+    const controls = 'input:not([type="hidden"]),textarea,select';
+    const add = element => {
+      if (!element || element.matches('input,select,textarea,button,a,script,style') || element.querySelector(controls)) return;
+      if (element.tagName === "LABEL" && ((element.htmlFor && element.htmlFor !== field.id) || (element.control && element.control !== field))) return;
+      const text = labelText(element);
+      if (text && text.length <= 180) labels.add(text);
+    };
+    let current = field;
+    for (let level = 0; level < 3 && current.parentElement; level++, current = current.parentElement) {
+      const parent = current.parentElement;
+      const group = [...parent.querySelectorAll(controls)];
+      // Do not take a neighboring field's label when several controls share a row.
+      const previous = current.previousElementSibling;
+      if (previous && (!previous.matches("label") || !previous.control || previous.control === field)) add(previous);
+      if (group.length === 1 && group[0] === field && current.nextElementSibling?.matches('label,[class~="field-label"],[class~="control-label"]')) add(current.nextElementSibling);
+      if (group.length !== 1 || group[0] !== field) break;
+      parent.querySelectorAll('label,[class~="field-label"],[class~="control-label"],[data-label]').forEach(add);
+      if (parent.matches("form,fieldset,body,html")) break;
+    }
+    return [...labels];
+  };
+  const evidenceFor = field => [
+    ...[field.name, field.id].map(value => ({ value, weight: 0 })),
+    { value: field.placeholder, weight: -5 },
+    ...[field.getAttribute("aria-label"), referencedText(field), ...[...(field.labels || [])].map(labelText)].map(value => ({ value, weight: 12 })),
+    { value: field.type === "radio" ? field.closest("fieldset")?.querySelector("legend")?.textContent : "", weight: 8 },
+    ...nearbyLabels(field).map(value => ({ value, weight: 6 }))
+  ].map(item => ({ text: normalize(item.value), weight: item.weight })).filter(item => item.text);
+  const evidenceCache = new Map();
+  const evidenceForCached = field => {
+    if (!evidenceCache.has(field)) evidenceCache.set(field, evidenceFor(field));
+    return evidenceCache.get(field);
+  };
+  const hints = field => evidenceForCached(field).map(item => item.text);
   const definitions = ApplyKitSchema.fields.filter(definition => !definition.sensitive || profile.fillSensitive === true);
   const matchDefinition = field => {
     const autocomplete = field.autocomplete?.split(/\s+/).pop();
-    const direct = definitions.find(definition => definition.autocomplete === autocomplete);
+    const direct = autocomplete ? definitions.find(definition => definition.autocomplete && definition.autocomplete === autocomplete) : null;
     if (direct) return direct;
     if (autocomplete === "tel") return definitions.find(definition => definition.key === "phone");
     if (autocomplete === "country") return definitions.find(definition => definition.key === "country");
     if (field.type === "email") return definitions.find(definition => definition.key === "email");
-    const evidence = hints(field);
+    const evidence = evidenceForCached(field);
     const custom = Object.entries(profile.custom || {}).filter(([key, value]) => key.trim().length > 1 && typeof value === "string" && value.trim()).map(([key]) => ({ key: `custom:${key}`, label: key, aliases: [key] }));
     let best = null; let bestScore = 0; let tied = false;
     for (const definition of [...definitions, ...custom]) {
       let score = 0;
       for (const alias of definition.aliases) {
         const text = normalize(alias); if (!text) continue;
-        for (const hint of evidence) {
-          if (hint === text) score = Math.max(score, 100 + text.length / 1000);
-          else if ((text.includes(" ") || !["name", "country", "state", "region", "source", "address", "notice", "summary", "degree", "school", "major", "unit", "skills", "languages", "currency"].includes(text)) && (` ${hint} `).includes(` ${text} `)) score = Math.max(score, 60 + Math.min(text.length, 35));
+        for (const { text: hint, weight } of evidence) {
+          if (hint === text) score = Math.max(score, 100 + weight + text.length / 1000);
+          else if ((text.includes(" ") || !["name", "country", "state", "region", "source", "address", "notice", "summary", "degree", "school", "major", "unit", "skills", "languages", "currency"].includes(text)) && (` ${hint} `).includes(` ${text} `)) score = Math.max(score, 60 + weight + Math.min(text.length, 35));
         }
       }
       if (score > bestScore) { best = definition; bestScore = score; tied = false; }
       else if (score && score === bestScore && best?.key !== definition.key) tied = true;
     }
-    if (best?.options?.join() === "Yes,No" && evidence.some(text => /\b(not|without)\b/.test(text))) return null;
+    if (best?.options?.join() === "Yes,No" && evidence.some(({ text }) => /\b(not|without)\b/.test(text))) return null;
     return tied ? null : best;
   };
-  const candidates = fields.filter(field => !field.disabled && !field.readOnly && !["hidden", "password", "submit", "button", "reset", "checkbox", "search", "range", "color", "image"].includes(field.type) && !field.multiple);
+  const candidates = fields.filter(field => !field.disabled && !field.readOnly && !["hidden", "password", "submit", "button", "reset", "checkbox", "search", "range", "color", "image"].includes(field.type) && (!field.multiple || field.type === "file"));
   const definitionsByField = new Map(candidates.map(field => [field, field.type === "file" ? null : matchDefinition(field)]));
   const plan = []; const plannedRadios = new Set();
   const optionMatches = (option, value, key) => {
@@ -177,5 +215,5 @@ function applyKitFill(profile = {}, resume = null, action = "preview") {
     plan.push({ field, key, label: definition.label, value, kind: field.type === "radio" ? "radio" : "value" });
   }
   ApplyKitPreviewPlan = plan;
-  return { matches: plan.map(item => ({ label: item.label, kind: item.kind })), canUndo: ApplyKitFillHistory.length > 0 };
+  return { matches: plan.map(item => ({ label: item.label, kind: item.kind })), fieldCount: candidates.length, emptyFieldCount: candidates.filter(isEmpty).length, inaccessibleFrames, canUndo: ApplyKitFillHistory.length > 0 };
 }

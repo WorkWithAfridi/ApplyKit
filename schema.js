@@ -6,11 +6,11 @@ var ApplyKitSchema = (() => {
     { id: "contact", title: "Personal & contact", description: "The essentials for every introduction.", fields: [
       field("firstName", "First name", ["given name", "fname"], { autocomplete: "given-name" }),
       field("lastName", "Last name", ["family name", "surname", "lname"], { autocomplete: "family-name" }),
-      field("fullName", "Full name", ["your name", "legal name", "name"], { autocomplete: "name" }),
+      field("fullName", "Full name", ["your name", "legal name", "applicant name", "candidate name", "name of applicant", "name"], { autocomplete: "name" }),
       field("preferredName", "Preferred name", ["chosen name", "nickname"], { autocomplete: "nickname" }),
-      field("email", "Email", ["email address", "e mail"], { type: "email", autocomplete: "email" }),
+      field("email", "Email", ["email address", "e mail", "primary email", "email id"], { type: "email", autocomplete: "email" }),
       field("phoneCountryCode", "Phone country code", ["country calling code", "calling code", "dial code", "dialing code", "dialling code", "country code"], { type: "tel", autocomplete: "tel-country-code", placeholder: "+44" }),
-      field("phone", "Phone number", ["telephone", "mobile number", "phone", "mobile", "cell phone"], { type: "tel", autocomplete: "tel-national", hint: "Your national number. Set the international number below if its formatting differs." }),
+      field("phone", "Phone number", ["telephone", "mobile number", "phone", "mobile", "cell phone", "contact number", "telephone number", "phone no"], { type: "tel", autocomplete: "tel-national", hint: "Your national number. Set the international number below if its formatting differs." }),
       field("phoneInternational", "International phone number", ["international phone", "full phone number"], { type: "tel", placeholder: "+44 7700 900000", hint: "Optional. Used for a single phone field instead of combining code and number." }),
       field("pronouns", "Pronouns", ["preferred pronouns"])
     ] },
