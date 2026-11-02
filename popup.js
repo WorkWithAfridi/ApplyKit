@@ -1,129 +1,84 @@
 const status = document.getElementById("status");
+const button = document.getElementById("fill-button");
+const preview = document.getElementById("match-preview");
+let stage = "preview";
+let targetTabId = null;
+let savedProfile = {};
+let savedResume = null;
+
+async function initialize() {
+  const [{ profile = {} }, resume] = await Promise.all([chrome.storage.local.get("profile"), ApplyKitStorage.getResume()]);
+  savedProfile = profile; savedResume = resume;
+  const count = ApplyKitSchema.fields.filter(field => typeof profile[field.key] === "string" && profile[field.key].trim()).length + Object.keys(profile.custom || {}).length;
+  document.getElementById("profile-name").textContent = profile.preferredName || profile.fullName || [profile.firstName, profile.lastName].filter(Boolean).join(" ") || "Your application profile";
+  document.getElementById("profile-summary").textContent = count ? `${count} saved detail${count === 1 ? "" : "s"} · ready when you are` : "Add a few details to get started";
+  document.getElementById("resume-summary").textContent = resume ? resume.name : "No resume PDF saved yet";
+}
+
+async function run(action) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id || (targetTabId !== null && targetTabId !== tab.id)) throw new Error("The page changed. Reopen ApplyKit on the form you want to fill.");
+  targetTabId = tab.id;
+  if (action === "preview") await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["schema.js", "autofill.js"] });
+  let resume = savedResume ? { name: savedResume.name } : null;
+  if (action === "fill" && savedResume) {
+    const bytes = new Uint8Array(await savedResume.file.arrayBuffer()); let binary = "";
+    for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+    resume.base64 = btoa(binary);
+  }
+  const [result] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: (profile, resume, action) => applyKitFill(profile, resume, action),
+    args: [savedProfile, resume, action]
+  });
+  return result.result;
+}
+
+function reset() {
+  stage = "preview"; preview.hidden = true;
+  button.textContent = "Review matching fields →";
+}
 
 document.getElementById("options-button").addEventListener("click", () => chrome.runtime.openOptionsPage());
-
-document.getElementById("fill-button").addEventListener("click", async () => {
-  const button = document.getElementById("fill-button");
+document.getElementById("rescan-button").addEventListener("click", () => { reset(); button.click(); });
+button.addEventListener("click", async () => {
   button.disabled = true;
-  status.textContent = "Looking for matching fields…";
   try {
-    const profile = (await chrome.storage.local.get("profile")).profile || {};
-    const savedResume = await ApplyKitStorage.getResume();
-    const resume = savedResume ? { name: savedResume.name, base64: await fileToBase64(savedResume.file) } : null;
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id) throw new Error("No active tab found.");
-    const [result] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: fillMatchingFields,
-      args: [profile, resume]
-    });
-    const count = result?.result?.filled || 0;
-    const attached = result?.result?.attached || false;
-    const summary = [count ? `Filled ${count} field${count === 1 ? "" : "s"}` : "No text fields matched", attached ? "attached saved resume" : resume ? "no matching resume upload field" : "no saved resume"];
-    status.textContent = `${summary.join("; ")}. Review before submitting.`;
-  } catch (error) {
-    status.textContent = "Could not access this page. Try a regular website form.";
-  } finally {
-    button.disabled = false;
-  }
-});
-
-async function fileToBase64(file) {
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  let binary = "";
-  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
-  }
-  return btoa(binary);
-}
-
-function fillMatchingFields(profile, resume) {
-  const aliases = {
-    firstName: ["first name", "given name", "firstname", "fname"],
-    lastName: ["last name", "family name", "surname", "lastname", "lname"],
-    fullName: ["full name", "your name", "name"],
-    email: ["email", "e-mail"],
-    phoneCountryCode: ["phone country code", "phonecountrycode", "telcountrycode", "country calling code", "calling code", "dialing code", "dialling code", "country code"],
-    phone: ["phone number", "telephone", "mobile number", "phone", "mobile", "cell"],
-    location: ["location", "city", "address", "country", "where are you based"],
-    linkedin: ["linkedin", "linkedin url", "linkedin profile"],
-    portfolio: ["portfolio", "website", "personal site", "personal website"],
-    github: ["github", "github url", "github profile"],
-    resumeUrl: ["resume url", "cv url", "resume link", "cv link"]
-  };
-  const normalize = value => (value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  const fields = [...document.querySelectorAll("input, textarea, select")];
-  const fieldClues = field => {
-    const label = field.labels ? [...field.labels].map(item => item.innerText).join(" ") : "";
-    const surrounding = field.closest("label")?.innerText || "";
-    return normalize([field.name, field.id, field.autocomplete, field.placeholder, field.getAttribute("aria-label"), label, surrounding].join(" "));
-  };
-  const fieldKey = clues => Object.keys(aliases).find(profileKey => aliases[profileKey].some(alias => clues.includes(normalize(alias))));
-  const separatePhoneCode = fields.some(field => fieldKey(fieldClues(field)) === "phoneCountryCode");
-  let filled = 0;
-  for (const field of fields) {
-    if (field.disabled || field.readOnly || field.type === "hidden" || field.type === "password" || field.type === "file" || field.type === "submit" || field.type === "button" || field.type === "checkbox" || field.type === "radio") continue;
-    if (field.value?.trim()) continue;
-    const clues = fieldClues(field);
-    const key = fieldKey(clues);
-    let value = key ? profile[key] : "";
-    if (!value) {
-      const customMatch = Object.entries(profile.custom || {}).find(([name]) => {
-        const normalizedName = normalize(name);
-        return normalizedName.length > 1 && clues.includes(normalizedName);
+    await ready;
+    if (stage === "preview") {
+      status.textContent = "Looking for matching empty fields…";
+      const result = await run("preview");
+      const list = document.getElementById("match-list"); list.replaceChildren();
+      result.matches.forEach(match => {
+        const item = document.createElement("li"); item.textContent = match.label;
+        const tag = document.createElement("span"); tag.textContent = match.kind === "file" ? "Attach PDF" : "Fill";
+        item.append(tag); list.append(item);
       });
-      value = customMatch?.[1] || "";
+      document.getElementById("undo-button").hidden = !result.canUndo;
+      if (!result.matches.length) { reset(); status.textContent = "No matching empty fields found. Check your profile or complete this form manually."; return; }
+      preview.hidden = false; stage = "fill";
+      button.textContent = `Fill ${result.matches.length} matched field${result.matches.length === 1 ? "" : "s"} →`;
+      status.textContent = "Review the matches below, then fill when you’re ready.";
+    } else {
+      const result = await run("fill"); reset();
+      const parts = [`Filled ${result.filled} field${result.filled === 1 ? "" : "s"}`];
+      if (result.attached) parts.push("attached your PDF");
+      if (result.skipped) parts.push(`skipped ${result.skipped} changed or unsupported field${result.skipped === 1 ? "" : "s"}`);
+      status.textContent = `${parts.join("; ")}. Review the page before submitting.`;
+      document.getElementById("undo-button").hidden = !result.canUndo;
     }
-    if (!value && key === "firstName") value = profile.fullName?.trim().split(/\s+/)[0];
-    if (!value && key === "lastName") value = profile.fullName?.trim().split(/\s+/).slice(1).join(" ");
-    if (key === "phone" && value && profile.phoneCountryCode) {
-      const digits = profile.phoneCountryCode.replace(/\D/g, "");
-      const currentDigits = String(value).replace(/\D/g, "");
-      const internationalPrefix = /^\s*(?:\+|00)/.test(value);
-      if (separatePhoneCode && digits && currentDigits.startsWith(digits) && internationalPrefix) {
-        value = String(value).replace(new RegExp(`^\\s*(?:\\+|00)?${digits}[\\s().-]*`), "");
-      } else if (!separatePhoneCode && digits && !/^\s*\+/.test(value) && !currentDigits.startsWith(`00${digits}`)) {
-        value = `${profile.phoneCountryCode} ${value}`;
-      }
-    }
-    if (!value) continue;
-    const option = field.tagName === "SELECT" ? [...field.options].find(item => normalize(item.textContent) === normalize(value) || normalize(item.value) === normalize(value) || (key === "phoneCountryCode" && normalize(item.textContent).includes(normalize(value)))) : null;
-    if (field.tagName === "SELECT" && !option) continue;
-    const prototype = field.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : field.tagName === "SELECT" ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
-    const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
-    setter?.call(field, option ? option.value : value);
-    field.dispatchEvent(new Event("input", { bubbles: true }));
-    field.dispatchEvent(new Event("change", { bubbles: true }));
-    filled++;
-  }
-
-  let attached = false;
-  if (resume?.base64) {
-    const fileInputs = fields.filter(field => field instanceof HTMLInputElement && field.type === "file");
-    for (const field of fileInputs) {
-      const clues = fieldClues(field);
-      const accepts = (field.accept || "").toLowerCase();
-      const isResumeField = /\b(resume|cv|curriculum vitae)\b/.test(clues);
-      const acceptsPdf = !accepts || accepts.includes("pdf") || accepts.includes("application/*") || accepts.includes("*/*");
-      if (!isResumeField || !acceptsPdf || field.disabled || field.files.length) continue;
-      const binary = atob(resume.base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
-      const file = new File([bytes], resume.name, { type: "application/pdf" });
-      const transfer = new DataTransfer();
-      transfer.items.add(file);
-      try {
-        field.files = transfer.files;
-        if (field.files.length) {
-          field.dispatchEvent(new Event("input", { bubbles: true }));
-          field.dispatchEvent(new Event("change", { bubbles: true }));
-          attached = true;
-          break;
-        }
-      } catch {
-        // Some application pages block programmatic file selection.
-      }
-    }
-  }
-  return { filled, attached };
-}
+  } catch (error) {
+    reset(); status.textContent = /page changed/.test(error.message) ? error.message : "Could not read this page. Open a regular website form and try again.";
+  } finally { button.disabled = false; }
+});
+document.getElementById("undo-button").addEventListener("click", async event => {
+  const undoButton = event.currentTarget;
+  undoButton.disabled = true;
+  try {
+    const result = await run("undo"); reset(); undoButton.hidden = true;
+    status.textContent = `Restored ${result.undone} field${result.undone === 1 ? "" : "s"}. Answers you edited afterward were kept.`;
+  } catch { status.textContent = "Could not undo. The page may have changed or reloaded."; }
+  finally { undoButton.disabled = false; }
+});
+const ready = initialize();
+ready.catch(() => { status.textContent = "Could not load your profile. Try reopening ApplyKit."; });

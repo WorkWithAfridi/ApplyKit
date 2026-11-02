@@ -1,25 +1,13 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ApplyKit</title>
-    <link rel="stylesheet" href="styles.css">
-  </head>
-  <body class="popup">
-    <main class="panel">
-      <div class="brand-row">
-        <div class="brand-mark" aria-hidden="true">A</div>
-        <div><h1>ApplyKit</h1><p class="eyebrow">YOUR APPLICATION PROFILE</p></div>
-      </div>
-      <p class="intro">Fill recognized fields on this page using your saved profile.</p>
-      <button class="button primary" id="fill-button" type="button">Fill this form <span aria-hidden="true">→</span></button>
-      <p class="status" id="status" role="status" aria-live="polite">Your details stay in this browser.</p>
-      <div class="divider"></div>
-      <button class="button secondary" id="options-button" type="button">Edit profile <span aria-hidden="true">↗</span></button>
-      <p class="fine-print">Review the form before submitting. ApplyKit never submits it for you.</p>
-    </main>
-    <script src="storage.js"></script>
-    <script src="popup.js"></script>
-  </body>
-</html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ApplyKit</title><link rel="stylesheet" href="styles.css"></head>
+<body class="popup"><main class="panel">
+  <header class="popup-header"><div class="brand"><img src="assets/logo.svg" alt="" width="36" height="36"><span>ApplyKit<small>MAKE YOUR NEXT MOVE.</small></span></div><span class="local-badge"><i></i> Local</span></header>
+  <div class="popup-hero"><p class="eyebrow">LESS TYPING. MORE OPPORTUNITY.</p><h1>Your next move,<br>with a head start<span>.</span></h1><p>Bring your saved details to this application.</p></div>
+  <div class="profile-preview"><div class="profile-avatar" aria-hidden="true">↗</div><div><strong id="profile-name">Your application profile</strong><span id="profile-summary">Loading your details…</span></div><button id="options-button" class="text-button" type="button" aria-label="Edit profile">Edit ↗</button></div>
+  <div class="resume-indicator"><span aria-hidden="true">▤</span><span id="resume-summary">Checking saved resume…</span></div>
+  <button class="button primary" id="fill-button" type="button">Review matching fields <span aria-hidden="true">→</span></button>
+  <p class="status" id="status" role="status" aria-live="polite">Existing answers are left as they are.</p>
+  <div id="match-preview" class="match-preview" hidden><div class="preview-heading"><strong>Ready to fill</strong><button id="rescan-button" type="button" class="text-button">Rescan</button></div><ul id="match-list"></ul></div>
+  <button class="button secondary" id="undo-button" type="button" hidden>Undo last fill <span aria-hidden="true">↶</span></button>
+  <footer class="popup-footer"><span class="privacy-dot"></span> Stored on this device · You submit when ready</footer>
+</main><script src="schema.js"></script><script src="storage.js"></script><script src="popup.js"></script></body></html>
