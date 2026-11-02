@@ -84,5 +84,30 @@ var ApplyKitSchema = (() => {
       field("veteranStatus", "Veteran status", ["protected veteran", "veteran"])
     ] }
   ];
-  return { sections, fields: sections.flatMap(section => section.fields.map(item => ({ ...item, sensitive: !!section.sensitive }))) };
+  const socialPlatforms = [
+    { name: "X", aliases: ["Twitter", "X (Twitter)", "X profile", "X URL", "X link", "Twitter profile", "Twitter URL", "Twitter link"] },
+    { name: "Facebook", aliases: ["Facebook profile", "Facebook URL", "Facebook link"] },
+    { name: "Instagram", aliases: ["Instagram profile", "Instagram URL"] },
+    { name: "YouTube", aliases: ["YouTube channel", "YouTube URL"] },
+    { name: "Bluesky", aliases: ["Bluesky profile"] },
+    { name: "Mastodon", aliases: ["Mastodon profile"] },
+    { name: "Threads", aliases: ["Threads profile"] },
+    { name: "Dribbble", aliases: ["Dribbble portfolio"] },
+    { name: "Behance", aliases: ["Behance portfolio"] },
+    { name: "Stack Overflow", aliases: ["StackOverflow", "Stack Overflow profile"] },
+    { name: "Medium", aliases: ["Medium profile", "Medium blog"] },
+    { name: "Dev.to", aliases: ["DEV Community", "Dev.to profile"] },
+    { name: "GitLab", aliases: ["GitLab profile"] }
+  ];
+  const socialName = value => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const socialPlatform = name => socialPlatforms.find(platform => [platform.name, ...platform.aliases].some(alias => socialName(alias) === socialName(name)));
+  function socialFields(profile) {
+    if (!Array.isArray(profile.socialLinks)) return [];
+    return profile.socialLinks.flatMap((link, index) => {
+      if (!link || typeof link.platform !== "string" || typeof link.url !== "string" || !link.platform.trim() || !link.url.trim()) return [];
+      const platform = socialPlatform(link.platform);
+      return [{ key: `social:${index}`, label: `${link.platform} URL`, value: link.url, aliases: [...new Set([link.platform, `${link.platform} URL`, `${link.platform} profile`, `${link.platform} link`, ...(platform ? [platform.name, ...platform.aliases] : [])].flatMap(alias => [alias, alias.toLowerCase()]))] }];
+    });
+  }
+  return { sections, fields: sections.flatMap(section => section.fields.map(item => ({ ...item, sensitive: !!section.sensitive }))), socialPlatforms, socialName, socialPlatform, socialFields };
 })();

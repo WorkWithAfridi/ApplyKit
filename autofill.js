@@ -138,7 +138,7 @@ function applyKitFill(profile = {}, resume = null, action = "preview") {
     return evidenceCache.get(field);
   };
   const hints = field => evidenceForCached(field).map(item => item.text);
-  const definitions = ApplyKitSchema.fields.filter(definition => !definition.sensitive || profile.fillSensitive === true);
+  const definitions = [...ApplyKitSchema.fields.filter(definition => !definition.sensitive || profile.fillSensitive === true), ...ApplyKitSchema.socialFields(profile)];
   const matchDefinition = field => {
     const autocomplete = field.autocomplete?.split(/\s+/).pop();
     const direct = autocomplete ? definitions.find(definition => definition.autocomplete && definition.autocomplete === autocomplete) : null;
@@ -155,7 +155,7 @@ function applyKitFill(profile = {}, resume = null, action = "preview") {
         const text = normalize(alias); if (!text) continue;
         for (const { text: hint, weight } of evidence) {
           if (hint === text) score = Math.max(score, 100 + weight + text.length / 1000);
-          else if ((text.includes(" ") || !["name", "country", "state", "region", "source", "address", "notice", "summary", "degree", "school", "major", "unit", "skills", "languages", "currency"].includes(text)) && (` ${hint} `).includes(` ${text} `)) score = Math.max(score, 60 + weight + Math.min(text.length, 35));
+          else if ((text.includes(" ") || !["x", "name", "country", "state", "region", "source", "address", "notice", "summary", "degree", "school", "major", "unit", "skills", "languages", "currency"].includes(text)) && (` ${hint} `).includes(` ${text} `)) score = Math.max(score, 60 + weight + Math.min(text.length, 35));
         }
       }
       if (score > bestScore) { best = definition; bestScore = score; tied = false; }
@@ -183,7 +183,7 @@ function applyKitFill(profile = {}, resume = null, action = "preview") {
     }
     const definition = definitionsByField.get(field); if (!definition) continue;
     const key = definition.key;
-    let value = key.startsWith("custom:") ? profile.custom?.[key.slice(7)] : profile[key];
+    let value = key.startsWith("social:") ? definition.value : key.startsWith("custom:") ? profile.custom?.[key.slice(7)] : profile[key];
     if (!value && key === "fullName") value = [profile.firstName, profile.lastName].filter(Boolean).join(" ");
     if (!value && key === "phone") value = profile.phoneInternational;
     if (typeof value !== "string" || !value.trim()) continue;

@@ -17,8 +17,11 @@ function buildQuickDetails(profile) {
     for (const field of section.fields) {
       const value = profile[field.key];
       if (typeof value !== "string" || !value.trim()) continue;
-      details.push({ label: field.label, value, search: searchText([section.title, field.label, ...field.aliases, value].join(" ")) });
+      details.push({ label: field.label, value, search: searchText([section.title, ["linkedin", "github", "otherLink"].includes(field.key) ? "social links" : "", field.label, ...field.aliases, value].join(" ")) });
     }
+  }
+  for (const field of ApplyKitSchema.socialFields(profile)) {
+    details.push({ label: field.label, value: field.value, search: searchText(["social links", field.label, ...field.aliases, field.value].join(" ")) });
   }
   if (!profile.fullName && (profile.firstName || profile.lastName)) {
     const value = [profile.firstName, profile.lastName].filter(Boolean).join(" ");
@@ -83,7 +86,7 @@ async function initialize() {
   const profile = profileResult.value.profile || {};
   savedProfile = profile; savedResume = resumeResult.status === "fulfilled" ? resumeResult.value : null;
   quickDetails = buildQuickDetails(profile); renderQuickDetails();
-  const count = ApplyKitSchema.fields.filter(field => typeof profile[field.key] === "string" && profile[field.key].trim()).length + Object.keys(profile.custom || {}).length;
+  const count = ApplyKitSchema.fields.filter(field => typeof profile[field.key] === "string" && profile[field.key].trim()).length + Object.keys(profile.custom || {}).length + ApplyKitSchema.socialFields(profile).length;
   document.getElementById("profile-name").textContent = profile.preferredName || profile.fullName || [profile.firstName, profile.lastName].filter(Boolean).join(" ") || "Your application profile";
   document.getElementById("profile-summary").textContent = count ? `${count} saved detail${count === 1 ? "" : "s"} · ready when you are` : "Add a few details to get started";
   document.getElementById("resume-summary").textContent = savedResume ? savedResume.name : resumeResult.status === "rejected" ? "Resume storage is unavailable" : "No resume PDF saved yet";

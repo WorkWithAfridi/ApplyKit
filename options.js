@@ -15,7 +15,7 @@ function markDirty() { dirty = true; status.textContent = "You have unsaved chan
 
 function createField(definition) {
   const label = make("label", `field-label${definition.wide ? " wide" : ""}`);
-  label.dataset.search = [definition.label, ...definition.aliases].join(" ").toLowerCase();
+  label.dataset.search = [["linkedin", "github", "otherLink"].includes(definition.key) ? "social links" : "", definition.label, ...definition.aliases].join(" ").toLowerCase();
   label.append(make("span", "", definition.label));
   const control = make(definition.multiline ? "textarea" : definition.options ? "select" : "input");
   control.name = definition.key;
@@ -60,6 +60,10 @@ function buildSections() {
     section.fields.forEach(definition => grid.append(createField(definition)));
     content.append(grid);
     if (section.id === "links") {
+      const social = make("div", "social-links-section");
+      social.innerHTML = '<div class="social-heading"><h3>Social links</h3><span>Any platform, your choice.</span></div><p class="note">Add X, Facebook, or a platform of your own. These links are available in popup search, copy, and matching form fields.</p><datalist id="social-platforms"></datalist><div id="social-links"></div><button class="button secondary compact" id="add-social" type="button">＋ Add social link</button>';
+      ApplyKitSchema.socialPlatforms.forEach(platform => social.querySelector("datalist").append(new Option(platform.name)));
+      content.append(social);
       const resume = make("div", "resume-store");
       resume.innerHTML = '<div class="resume-top"><div class="document-mark" aria-hidden="true">PDF</div><div class="resume-copy"><strong>Your current resume</strong><small>PDF · up to 10 MB · saved in this browser</small></div><div class="resume-controls"><label class="button secondary compact file-button">↑ Choose PDF<input id="resume-file" class="visually-hidden" type="file" accept="application/pdf,.pdf"></label><button id="download-resume" class="button secondary compact" type="button" hidden>↓</button><button id="remove-resume" class="remove-button" type="button" hidden>Remove</button></div></div><p id="resume-status" class="resume-status" role="status" aria-live="polite">No PDF stored. You can also use the resume URL above.</p>';
       resume.querySelector("#download-resume").setAttribute("aria-label", "Download stored resume");
@@ -86,6 +90,49 @@ function addCustomRow(key = "", value = "") {
   question.append(name); answer.append(content); row.append(header, question, answer); customFields.append(row);
 }
 
+function addSocialRow(platform = "", url = "") {
+  const row = make("div", "social-row");
+  const nameLabel = make("label", "field-label", "Platform or custom name");
+  const name = make("input", "social-platform");
+  name.value = platform; name.placeholder = "X, Facebook, or another platform"; name.maxLength = 100;
+  name.setAttribute("list", "social-platforms"); name.autocomplete = "off";
+  const urlLabel = make("label", "field-label", "Profile URL");
+  const link = make("input", "social-url"); link.type = "url"; link.value = url; link.placeholder = "https://…"; link.maxLength = 2048;
+  const remove = make("button", "remove-button", "Remove"); remove.type = "button";
+  const updateLabels = () => {
+    const definition = ApplyKitSchema.socialFields({ socialLinks: [{ platform: name.value || "Social", url: link.value || "https://example.test" }] })[0];
+    const keywords = ["social links", name.value, link.value, ...(definition?.aliases || [])].join(" ").toLowerCase();
+    nameLabel.dataset.search = keywords; urlLabel.dataset.search = keywords;
+    remove.setAttribute("aria-label", name.value ? `Remove ${name.value} social link` : "Remove social link");
+  };
+  name.addEventListener("input", updateLabels); link.addEventListener("input", updateLabels);
+  remove.addEventListener("click", () => { row.remove(); markDirty(); });
+  nameLabel.append(name); urlLabel.append(link); row.append(nameLabel, urlLabel, remove);
+  document.getElementById("social-links").append(row); updateLabels();
+}
+
+function cleanSocialLinks(raw) {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw) || raw.length > 100) throw new Error("Use a list of up to 100 social links.");
+  const seen = new Set(); const links = [];
+  for (const item of raw) {
+    if (!item || typeof item.platform !== "string" || typeof item.url !== "string") throw new Error("Each social link needs a platform name and URL.");
+    const platform = item.platform.trim(); const url = item.url.trim();
+    if (!platform && !url) continue;
+    if (!platform || !url) throw new Error("Enter both a platform name and URL for each social link.");
+    if (platform.length > 100 || url.length > 2048) throw new Error("A social link name or URL is too long.");
+    if (["linkedin", "github"].includes(ApplyKitSchema.socialName(platform))) throw new Error(`Use the existing ${platform} URL field above for this platform.`);
+    let parsed;
+    try { parsed = new URL(url); } catch { throw new Error(`Enter a valid URL for ${platform}, starting with https:// or http://.`); }
+    if (!["https:", "http:"].includes(parsed.protocol)) throw new Error(`Use an https:// or http:// URL for ${platform}.`);
+    const key = ApplyKitSchema.socialName(ApplyKitSchema.socialPlatform(platform)?.name || platform);
+    if (!key) throw new Error("Use letters or numbers in each platform name.");
+    if (seen.has(key)) throw new Error(`Duplicate social platform: ${platform}. Give separate accounts distinct names.`);
+    seen.add(key); links.push({ platform, url });
+  }
+  return links;
+}
+
 function cleanProfile(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Choose an ApplyKit profile JSON file.");
   const profile = {};
@@ -95,6 +142,7 @@ function cleanProfile(raw) {
     if (value.length > 20000) throw new Error(`${definition.label} is too long.`);
     profile[definition.key] = value;
   }
+  profile.socialLinks = cleanSocialLinks(raw.socialLinks);
   profile.fillSensitive = raw.fillSensitive === true;
   profile.custom = {};
   if (raw.custom !== undefined && (!raw.custom || typeof raw.custom !== "object" || Array.isArray(raw.custom))) throw new Error("Custom answers must be a list of question and answer pairs.");
@@ -117,6 +165,8 @@ async function loadProfile() {
     control.value = profile[definition.key];
   }
   form.elements.fillSensitive.checked = profile.fillSensitive;
+  document.getElementById("social-links").replaceChildren();
+  profile.socialLinks.forEach(link => addSocialRow(link.platform, link.url));
   customFields.replaceChildren();
   Object.entries(profile.custom).forEach(([key, value]) => addCustomRow(key, value));
   updateCount(profile);
@@ -124,7 +174,7 @@ async function loadProfile() {
 }
 
 function updateCount(profile) {
-  document.getElementById("saved-count").textContent = fieldDefinitions.filter(field => profile[field.key]).length + Object.keys(profile.custom || {}).length;
+  document.getElementById("saved-count").textContent = fieldDefinitions.filter(field => profile[field.key]).length + Object.keys(profile.custom || {}).length + (profile.socialLinks || []).length;
 }
 
 async function updateResumeStatus() {
@@ -141,12 +191,14 @@ function download(blob, name) {
 }
 
 buildSections();
+document.getElementById("add-social").addEventListener("click", () => { addSocialRow(); markDirty(); document.querySelector(".social-row:last-child .social-platform").focus(); });
 document.getElementById("add-custom").addEventListener("click", () => { addCustomRow(); markDirty(); customFields.lastElementChild.querySelector("input").focus(); });
 form.addEventListener("input", event => { if (event.target.id !== "resume-file") markDirty(); });
 form.addEventListener("submit", async event => {
   event.preventDefault();
   try {
     const raw = Object.fromEntries(fieldDefinitions.map(definition => [definition.key, form.elements.namedItem(definition.key).value]));
+    raw.socialLinks = [...document.querySelectorAll(".social-row")].map(row => ({ platform: row.querySelector(".social-platform").value, url: row.querySelector(".social-url").value }));
     raw.fillSensitive = form.elements.fillSensitive.checked; raw.custom = {};
     for (const row of customFields.querySelectorAll(".custom-row")) {
       const key = row.querySelector("input").value.trim(); const value = row.querySelector("textarea").value.trim();
@@ -194,7 +246,7 @@ document.getElementById("import-file").addEventListener("change", async event =>
     const parsed = JSON.parse(await file.text());
     if (parsed.version !== undefined && ![1, 2].includes(parsed.version)) throw new Error("This backup version is not supported.");
     const raw = parsed.profile || parsed;
-    if (!Object.keys(raw).some(key => fieldDefinitions.some(field => field.key === key) || key === "custom")) throw new Error("That file does not contain an ApplyKit profile.");
+    if (!Object.keys(raw).some(key => fieldDefinitions.some(field => field.key === key) || key === "custom" || key === "socialLinks")) throw new Error("That file does not contain an ApplyKit profile.");
     const profile = cleanProfile(raw);
     if (!window.confirm("Replace your current profile fields with this backup? Your saved PDF will stay as it is.")) return;
     await chrome.storage.local.set({ profile }); await loadProfile();
@@ -210,8 +262,10 @@ document.getElementById("field-search").addEventListener("input", event => {
     if (query && !previousOpen.has(section.id)) previousOpen.set(section.id, section.open);
     let sectionMatches = 0;
     const titleMatches = section.querySelector("strong").textContent.toLowerCase().includes(query);
+    const socialMatches = section.id === "links" && !!query && ["social", ...ApplyKitSchema.socialPlatforms.flatMap(platform => [platform.name, ...platform.aliases])].some(name => name.toLowerCase().includes(query));
+    if (socialMatches) sectionMatches++;
     for (const label of section.querySelectorAll(".field-label")) {
-      label.hidden = !!query && !titleMatches && !label.dataset.search.includes(query);
+      label.hidden = !!query && !titleMatches && !(socialMatches && label.closest(".social-row")) && !(label.dataset.search || "").includes(query);
       if (!label.hidden) sectionMatches++;
     }
     section.hidden = !!query && !sectionMatches;
