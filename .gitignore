@@ -3,3 +3,9 @@
 node_modules/
 .env*
 coverage/
+
+# Personal exports and documents never belong in source.
+applykit-profile-backup*.json
+*.pdf
+playwright-report/
+test-results/
