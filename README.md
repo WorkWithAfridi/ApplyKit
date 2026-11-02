@@ -9,6 +9,7 @@
 - A blue profile workspace with search, collapsible sections, a saved-detail count, and reminders for unsaved changes.
 - Optional fields for contact details, full address, social links, resume, recent experience, education, work eligibility, availability, compensation, and reusable application answers.
 - Up to 100 custom questions and answers for details unique to your search.
+- Named social links for X/Twitter, Facebook, and any other platform, with search, copy, autofill, and backup support.
 - A compact popup with searchable saved details. Click a result to copy its full value, including long answers; search works even when a page cannot be filled.
 - A match preview before filling native text inputs, text areas, dropdowns, and radio answers. Visual labels beside or just outside an input wrapper can be recognized even without a formal HTML label link.
 - Local PDF storage, download, replacement, and removal. Recognized resume inputs can receive the PDF when you confirm the fill action.
@@ -43,7 +44,7 @@ Open ApplyKit and choose **Edit**. Fill any details you want to reuse and click 
 | --- | --- |
 | Personal & contact | Names, email, national and international phone numbers, calling code, pronouns |
 | Location & address | Street lines, city, state/province, postcode, country, time zone |
-| Links & resume | LinkedIn, portfolio, GitHub, another link, CV URL, stored PDF |
+| Links & resume | LinkedIn, portfolio, GitHub, custom social links, another link, CV URL, stored PDF |
 | Experience & skills | Recent title and employer, employment dates, experience years, skills, languages, summary |
 | Education | School, degree, field of study, graduation year, grade, certifications |
 | Work eligibility | Authorization, sponsorship, relocation, travel, desired title, employment type, work arrangement |
@@ -53,6 +54,14 @@ Open ApplyKit and choose **Edit**. Fill any details you want to reuse and click 
 | Custom answers | Your own question labels and reusable answers |
 
 Self-identification answers are excluded from filling unless you explicitly enable the checkbox in that section. Leave anything you do not want to store blank.
+
+### Social links
+
+In **Links & resume**, choose **Add social link**. Enter a platform name and its profile URL, then click **Save profile**. The name input suggests X, Facebook, Instagram, YouTube, Bluesky, Mastodon, Threads, Dribbble, Behance, Stack Overflow, Medium, Dev.to, and GitLab; you can type any custom platform name instead. LinkedIn and GitHub keep their existing dedicated fields.
+
+Saved social links appear in popup search and can be copied like other details. Common aliases are recognized: an X link can match a field labeled “Twitter profile.” Custom links match their platform names and URL/profile labels. Keep URLs complete, starting with `https://` or `http://`. Use distinct names for separate accounts. You can remove a link in settings and save again; profile JSON exports and imports include these links.
+
+![Custom social links editor](docs/screenshots/social-links.png)
 
 ### Phone numbers
 

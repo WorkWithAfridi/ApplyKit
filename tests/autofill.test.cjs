@@ -110,3 +110,27 @@ test("unmatched forms report what was inspected without exposing field values", 
   const result = await run(page, { email: "fictional@example.test" });
   assert.equal(result.matches.length, 0); assert.equal(result.fieldCount, 2); assert.equal(result.emptyFieldCount, 1); assert.equal(JSON.stringify(result).includes('Existing answer'), false); await page.close();
 });
+
+test("named social links match common aliases and custom labels without treating every X as a profile", async () => {
+  const page = await fixture('<form><label>Twitter profile<input id="twitter"></label><label>Facebook URL<input id="facebook"></label><label>ArtSpace URL<input id="art"></label><label>Experience in X years<input id="unrelated"></label><label>LinkedIn URL<input id="linkedin"></label><label>GitHub URL<input id="github"></label></form>');
+  const profile = { linkedin: 'https://example.test/linkedin', github: 'https://example.test/github', socialLinks: [{ platform: 'X', url: 'https://example.test/x' }, { platform: 'Facebook', url: 'https://example.test/facebook' }, { platform: 'ArtSpace', url: 'https://example.test/art' }] };
+  assert.equal((await run(page, profile)).matches.length, 5);
+  assert.equal((await run(page, profile, 'fill')).filled, 5);
+  assert.equal(await page.locator('#twitter').inputValue(), profile.socialLinks[0].url);
+  assert.equal(await page.locator('#facebook').inputValue(), profile.socialLinks[1].url);
+  assert.equal(await page.locator('#art').inputValue(), profile.socialLinks[2].url);
+  assert.equal(await page.locator('#unrelated').inputValue(), '');
+  assert.equal(await page.locator('#linkedin').inputValue(), profile.linkedin);
+  assert.equal(await page.locator('#github').inputValue(), profile.github);
+  await page.close();
+});
+
+test("social link names match lowercase field identifiers as well as styled platform names", async () => {
+  const page = await fixture('<input name="youtube_channel"><input name="artspace_url">');
+  const profile = { socialLinks: [{ platform: 'YouTube', url: 'https://example.test/channel' }, { platform: 'ArtSpace', url: 'https://example.test/art' }] };
+  assert.equal((await run(page, profile)).matches.length, 2);
+  assert.equal((await run(page, profile, 'fill')).filled, 2);
+  assert.equal(await page.locator('[name=youtube_channel]').inputValue(), profile.socialLinks[0].url);
+  assert.equal(await page.locator('[name=artspace_url]').inputValue(), profile.socialLinks[1].url);
+  await page.close();
+});
