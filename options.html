@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ApplyKit profile</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body class="settings-page">
+    <main class="settings-shell">
+      <header class="settings-header">
+        <a class="back-link" href="popup.html">← ApplyKit</a>
+        <p class="eyebrow">PRIVATE BY DESIGN</p>
+        <h1>Your profile</h1>
+        <p class="intro">Add the details you reuse in applications. They are saved on this device in Chrome.</p>
+      </header>
+      <form id="profile-form">
+        <section class="form-section">
+          <div class="section-heading"><h2>Contact details</h2><p>Basic information</p></div>
+          <div class="field-grid">
+            <label>First name<input name="firstName" autocomplete="given-name"></label>
+            <label>Last name<input name="lastName" autocomplete="family-name"></label>
+            <label class="wide">Full name<input name="fullName" autocomplete="name"></label>
+            <label>Email<input type="email" name="email" autocomplete="email"></label>
+            <label>Phone<input type="tel" name="phone" autocomplete="tel"></label>
+            <label class="wide">Location<input name="location" placeholder="City, country"></label>
+          </div>
+        </section>
+        <section class="form-section">
+          <div class="section-heading"><h2>Links</h2><p>Profiles and portfolio</p></div>
+          <div class="field-grid">
+            <label>LinkedIn URL<input type="url" name="linkedin" placeholder="https://..."></label>
+            <label>Portfolio URL<input type="url" name="portfolio" placeholder="https://..."></label>
+            <label>GitHub URL<input type="url" name="github" placeholder="https://..."></label>
+            <label>Resume / CV URL<input type="url" name="resumeUrl" placeholder="https://..."></label>
+          </div>
+          <p class="note">A resume link can fill a URL field. For file-upload fields, choose your resume manually; Chrome does not let extensions silently attach a local file.</p>
+        </section>
+        <section class="form-section">
+          <div class="section-heading"><h2>Custom fields</h2><p>Other reusable answers</p></div>
+          <p class="note">Add a field name and value. ApplyKit uses the name to look for a matching form label, placeholder, or field name.</p>
+          <div id="custom-fields"></div>
+          <button class="button secondary compact" id="add-custom" type="button">＋ Add custom field</button>
+        </section>
+        <div class="save-row"><span id="save-status" class="status" role="status" aria-live="polite">Saved only in this browser.</span><button class="button primary" type="submit">Save profile</button></div>
+      </form>
+      <section class="backup-section">
+        <div><h2>Backup your profile</h2><p>Export or import a JSON copy. Treat exported files as sensitive.</p></div>
+        <div class="backup-actions"><button class="button secondary compact" id="export-button" type="button">Export JSON</button><label class="button secondary compact import-button">Import JSON<input id="import-file" type="file" accept="application/json,.json" hidden></label></div>
+      </section>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>
